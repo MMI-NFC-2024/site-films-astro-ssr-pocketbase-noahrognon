@@ -1,4 +1,4 @@
-﻿---
+---
 import Layout from "../../../layouts/Layout.astro";
 
 export const prerender = false;
@@ -7,7 +7,7 @@ const { id, nom_slug } = Astro.params;
 const isLoggedIn = Astro.locals.pb.authStore.isValid;
 const userId = Astro.locals.pb.authStore.model?.id ?? null;
 
-const proffessionOptions = ["acteur", "réalisateur", "scénariste", "producteur"];
+const proffessionOptions = ["acteur", "realisateur", "scenariste", "producteur"];
 
 const toSlug = (value) =>
   String(value || "personne")
@@ -16,6 +16,8 @@ const toSlug = (value) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
+
+const toDateInputValue = (value) => (value ? String(value).slice(0, 10) : "");
 
 let personne = null;
 let errorMessage = "";
@@ -50,18 +52,13 @@ if (Astro.request.method === "POST") {
     try {
       if (intent === "create") {
         const record = await Astro.locals.pb.collection("Personne").create(payload);
-        const slug = toSlug(nom);
-        return Astro.redirect(`/personnes/${record.id}-${slug}`);
+        return Astro.redirect(`/personnes/${record.id}-${toSlug(record.nom || nom)}`);
       }
 
       await Astro.locals.pb.collection("Personne").update(id, payload);
-      return Astro.redirect(`/personnes/${id}-${nom_slug || "personne"}`);
+      return Astro.redirect(`/personnes/${id}-${nom_slug || toSlug(nom || "personne")}`);
     } catch (error) {
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else {
-        errorMessage = "Erreur lors de l'enregistrement.";
-      }
+      errorMessage = error instanceof Error ? error.message : "Erreur lors de l'enregistrement.";
     }
   }
 }
@@ -70,116 +67,141 @@ if (isLoggedIn) {
   try {
     personne = await loadPersonne();
   } catch (error) {
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else {
-      errorMessage = "Personne introuvable.";
-    }
+    errorMessage = error instanceof Error ? error.message : "Personne introuvable.";
   }
 }
 ---
 
 <Layout pageTitle="Edition personne - PocketBase Cinema">
-  <div>
-    <h1>Edition personne</h1>
-    <a href="/personnes">Retour a la liste</a>
-  </div>
+  <section class="hero-card">
+    <div class="hero-glow-secondary"></div>
+    <div class="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <span class="chip">Back-office</span>
+        <h1 class="page-title mt-3">Edition personne</h1>
+        <p class="page-subtitle">Cree une nouvelle fiche ou modifie une personne existante.</p>
+      </div>
+      <a href="/personnes" class="btn-secondary">Retour a la liste</a>
+    </div>
+  </section>
 
   {!isLoggedIn && (
-    <p>
-      Vous devez vous connecter.
-      <a href="/authpassword">Se connecter</a>
-    </p>
+    <section class="section-card">
+      <p class="text-sm text-slate-200">
+        Vous devez vous connecter. <a class="btn-link" href="/authpassword">Se connecter</a>
+      </p>
+    </section>
   )}
 
-  {errorMessage && <p>{errorMessage}</p>}
+  {errorMessage && (
+    <section class="section-card border-rose-300/20 bg-rose-400/10">
+      <p class="text-sm text-rose-100">{errorMessage}</p>
+    </section>
+  )}
 
   {isLoggedIn && (
-    <div>
+    <section class="grid gap-6 xl:grid-cols-2">
       {personne && (
-        <div>
-          <h2>Modifier</h2>
-          <form method="post">
+        <div class="form-card">
+          <div class="mb-4 flex items-center justify-between gap-3">
+            <h2 class="text-lg font-semibold text-white">Modifier</h2>
+            <span class="muted-chip">#{personne.id}</span>
+          </div>
+
+          <form method="post" class="stack">
             <input type="hidden" name="intent" value="update" />
 
-            <label>
-              Nom
-              <input type="text" name="nom" value={personne.nom ?? ""} />
-            </label>
+            <div class="form-grid">
+              <label class="field">
+                <span class="field-label">Nom</span>
+                <input class="text-input" type="text" name="nom" value={personne.nom ?? ""} />
+              </label>
 
-            <label>
-              Prenom
-              <input type="text" name="prenom" value={personne.prenom ?? ""} />
-            </label>
+              <label class="field">
+                <span class="field-label">Prenom</span>
+                <input class="text-input" type="text" name="prenom" value={personne.prenom ?? ""} />
+              </label>
 
-            <label>
-              Date de naissance
-              <input type="date" name="date_de_naissance" value={personne.date_de_naissance ?? ""} />
-            </label>
+              <label class="field">
+                <span class="field-label">Date de naissance</span>
+                <input class="text-input" type="date" name="date_de_naissance" value={toDateInputValue(personne.date_de_naissance)} />
+              </label>
 
-            <label>
-              Date de deces
-              <input type="date" name="date_de_deces" value={personne.date_de_deces ?? ""} />
-            </label>
+              <label class="field">
+                <span class="field-label">Date de deces</span>
+                <input class="text-input" type="date" name="date_de_deces" value={toDateInputValue(personne.date_de_deces)} />
+              </label>
+            </div>
 
-            <fieldset>
-              <legend>Profession</legend>
-              <div>
+            <fieldset class="section-card">
+              <legend class="field-label px-2">Profession(s)</legend>
+              <div class="checkbox-grid mt-3">
                 {proffessionOptions.map((opt) => (
-                  <label>
+                  <label class="check-chip">
                     <input type="checkbox" name="proffession" value={opt} checked={personne.proffession?.includes(opt) ?? false} />
-                    {opt}
+                    <span>{opt}</span>
                   </label>
                 ))}
               </div>
             </fieldset>
 
-            <button type="submit">Enregistrer</button>
+            <div class="actions-row">
+              <button class="btn-primary" type="submit">Enregistrer</button>
+              <a class="btn-secondary" href={`/personnes/${personne.id}-${nom_slug || toSlug(personne.nom)}`}>Voir la fiche</a>
+            </div>
           </form>
         </div>
       )}
 
-      <div>
-        <h2>Ajouter</h2>
-        <form method="post">
+      <div class="form-card">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <h2 class="text-lg font-semibold text-white">Ajouter</h2>
+          <span class="muted-chip">Nouvelle fiche</span>
+        </div>
+
+        <form method="post" class="stack">
           <input type="hidden" name="intent" value="create" />
 
-          <label>
-            Nom
-            <input type="text" name="nom" />
-          </label>
+          <div class="form-grid">
+            <label class="field">
+              <span class="field-label">Nom</span>
+              <input class="text-input" type="text" name="nom" />
+            </label>
 
-          <label>
-            Prenom
-            <input type="text" name="prenom" />
-          </label>
+            <label class="field">
+              <span class="field-label">Prenom</span>
+              <input class="text-input" type="text" name="prenom" />
+            </label>
 
-          <label>
-            Date de naissance
-            <input type="date" name="date_de_naissance" />
-          </label>
+            <label class="field">
+              <span class="field-label">Date de naissance</span>
+              <input class="text-input" type="date" name="date_de_naissance" />
+            </label>
 
-          <label>
-            Date de deces
-            <input type="date" name="date_de_deces" />
-          </label>
+            <label class="field">
+              <span class="field-label">Date de deces</span>
+              <input class="text-input" type="date" name="date_de_deces" />
+            </label>
+          </div>
 
-          <fieldset>
-            <legend>Profession</legend>
-            <div>
+          <fieldset class="section-card">
+            <legend class="field-label px-2">Profession(s)</legend>
+            <div class="checkbox-grid mt-3">
               {proffessionOptions.map((opt) => (
-                <label>
+                <label class="check-chip">
                   <input type="checkbox" name="proffession" value={opt} />
-                  {opt}
+                  <span>{opt}</span>
                 </label>
               ))}
             </div>
           </fieldset>
 
-          <button type="submit">Ajouter</button>
+          <div class="actions-row">
+            <button class="btn-primary" type="submit">Ajouter</button>
+            <a class="btn-secondary" href="/personnes">Annuler</a>
+          </div>
         </form>
       </div>
-    </div>
+    </section>
   )}
 </Layout>
-

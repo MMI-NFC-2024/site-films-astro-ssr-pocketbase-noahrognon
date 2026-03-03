@@ -1,27 +1,41 @@
 ---
-import { Debug } from "astro:components";
+import Layout from "../../../layouts/Layout.astro";
 import slug from "slug";
 
 export const prerender = false;
+
 const { idPersonne } = Astro.params;
 const personne = await Astro.locals.pb.collection("Personne").getOne(idPersonne);
+const displayName = [personne.prenom, personne.nom].filter(Boolean).join(" ") || personne.nom || "Personne";
+
 if (Astro.request.method === "POST") {
-    try {
-        await Astro.locals.pb.collection("Personne").delete(idPersonne);
-    } catch (error) {
-        console.error("Erreur suppression de la personne:", error);
-    }
-   
-        return Astro.redirect(`/personnes/`);
+  try {
+    await Astro.locals.pb.collection("Personne").delete(idPersonne);
+  } catch (error) {
+    console.error("Erreur suppression de la personne:", error);
+  }
+
+  return Astro.redirect(`/personnes/`);
 }
 ---
 
+<Layout pageTitle="Supprimer personne - PocketBase Cinema">
+  <section class="hero-card">
+    <div class="hero-glow-secondary"></div>
+    <div class="relative z-10">
+      <span class="chip">Danger zone</span>
+      <h1 class="page-title mt-3">Supprimer la personne</h1>
+      <p class="page-subtitle">Vous allez supprimer la fiche de <span class="font-semibold text-white">{displayName}</span>.</p>
+    </div>
+  </section>
 
-<form method="POST">
-    <label
-        >Nom de la personne: {personne.nom} {personne.prenom}
-    </label>
-    
-
-        <button type="submit">Confirmer la suppression</button>
-</form>
+  <section class="danger-panel">
+    <form method="post" class="stack">
+      <p class="text-sm text-rose-100">Cette suppression peut casser des liens si des roles ou films y font reference.</p>
+      <div class="actions-row">
+        <button class="btn-danger" type="submit">Confirmer la suppression</button>
+        <a class="btn-secondary" href={`/personnes/${idPersonne}-${slug(personne.nom || "personne")}`}>Annuler</a>
+      </div>
+    </form>
+  </section>
+</Layout>

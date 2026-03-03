@@ -3,12 +3,20 @@ import slug from "slug";
 
 import type { FilmsResponse } from "../pocketbase-types";
 import LinkFilms from "./LinkFilms.astro";
-type Props={
+type Props = {
   films: FilmsResponse[];
-}
+};
 const films = Astro.props.films;
 ---
-{films.map((film) => (
-  <LinkFilms film={film}/>
-))}
+{
+  films.length > 0 ? (
+    <div class="inline-list">
+      {films.map((film) => (
+        <LinkFilms film={film} />
+      ))}
+    </div>
+  ) : (
+    <span class="muted-chip">Aucun film</span>
+  )
+}
 

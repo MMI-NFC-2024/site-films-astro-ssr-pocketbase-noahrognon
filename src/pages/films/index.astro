@@ -1,46 +1,79 @@
-﻿---
+---
 import Layout from "../../layouts/Layout.astro";
 import slug from "slug";
 
-const films = await Astro.locals.pb.collection("Films").getFullList();
+const films = await Astro.locals.pb.collection("Films").getFullList({ sort: "-created" });
 const isLoggedIn = Astro.locals.pb.authStore.isValid;
 ---
 
 <Layout pageTitle="Films - PocketBase Cinema">
-  <div>
-    <h1>Films</h1>
-    {isLoggedIn && (
-      <a href="/films/edit/new-nouveau">
+  <section class="hero-card">
+    <div class="hero-glow"></div>
+    <div class="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <span class="chip">Catalogue</span>
+        <h1 class="page-title mt-3">Films</h1>
+        <p class="page-subtitle">Parcours les films, leurs genres, les equipes et les roles associes.</p>
+      </div>
+      <div class="actions-row">
+        {isLoggedIn && <a href="/films/edit/new-nouveau" class="btn-primary">Ajouter un film</a>}
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-grid">
+    <div class="stat-card">
+      <p class="stat-label">Total</p>
+      <p class="stat-value">{films.length} film{films.length > 1 ? "s" : ""}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Connexion</p>
+      <p class="stat-value">{isLoggedIn ? "Mode edition actif" : "Lecture seule"}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Navigation</p>
+      <p class="stat-value">Clique sur un titre pour ouvrir la fiche complete</p>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-lg font-semibold text-white">Liste des films</h2>
+      <span class="muted-chip">{films.length} resultats</span>
+    </div>
+
+    {films.length === 0 ? (
+      <div class="empty-state mt-4">
+        Aucun film pour le moment.
+        {isLoggedIn && " Ajoute le premier film pour demarrer le catalogue."}
+      </div>
+    ) : (
+      <ul class="list-stack mt-4">
+        {films.map((film) => (
+          <li class="item-row">
+            <div>
+              <a class="item-title-link" href={`/films/${film.id}-${slug(film.titre || "film")}`}>
+                {film.titre || "Film"}
+              </a>
+              <p class="item-meta">{film.genres?.join(", ") || "Genres non definis"}</p>
+            </div>
+            <div class="actions-row">
+              <a class="btn-secondary" href={`/films/${film.id}-${slug(film.titre || "film")}`}>Voir</a>
+              {isLoggedIn && (
+                <a class="btn-primary" href={`/films/edit/${film.id}-${slug(film.titre || "film")}`}>Editer</a>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+
+  {isLoggedIn && (
+    <div class="actions-row justify-center">
+      <a class="btn-primary" href="/films/edit">
         Ajouter un film
       </a>
-    )}
-  </div>
-
-  <ul>
-    {films.map((film) => (
-      <li>
-        <div>
-          <a
-           
-            href={`/films/${film.id}-${slug(film.titre || "film")}`}
-          >
-            {film.titre || "Film"}
-          </a>
-          <p>
-            {film.genres?.join(", ") || "Genres non definis"}
-          </p>
-        </div>
-        {isLoggedIn && (
-          <a
-           
-            href={`/films/edit/${film.id}-${slug(film.titre || "film")}`}
-          >
-            Editer
-          </a>
-        )}
-      </li>
-    ))}
-  </ul>
-  <a href="/films/edit">Ajouter un film</a>
+    </div>
+  )}
 </Layout>
-

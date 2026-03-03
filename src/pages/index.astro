@@ -1,22 +1,61 @@
-﻿---
+---
 import Layout from "../layouts/Layout.astro";
 ---
 
 <Layout pageTitle="Accueil - PocketBase Cinema">
-  <h1>Accueil</h1>
-  <p>
-    Interface simple pour gerer les films et les personnes.
-  </p>
+  <section class="hero-card">
+    <div class="hero-glow"></div>
+    <div class="hero-glow-secondary"></div>
+    <div class="relative z-10 space-y-5">
+      <span class="chip">Catalogue cinema</span>
+      <div>
+        <h1 class="page-title">Un dashboard cinema moderne pour vos films et talents</h1>
+        <p class="page-subtitle">
+          Gere rapidement votre base PocketBase avec une interface claire, dynamique et responsive pour les films, les personnes et leurs roles.
+        </p>
+      </div>
+      <div class="actions-row">
+        <a href="/films" class="btn-primary">Explorer les films</a>
+        <a href="/personnes" class="btn-secondary">Voir les personnes</a>
+      </div>
+    </div>
+  </section>
 
-  <div>
-    <a href="/films">
-      <h2>Films</h2>
-      <p>Voir la liste des films.</p>
+  <section class="card-grid">
+    <a href="/films" class="item-row block">
+      <div>
+        <div class="inline-list">
+          <span class="chip">Films</span>
+          <span class="muted-chip">Collections</span>
+        </div>
+        <h2 class="mt-3 text-xl font-semibold text-white">Bibliotheque des films</h2>
+        <p class="item-meta">Accede aux fiches, genres, roles et liens vers les personnes.</p>
+      </div>
+      <span class="btn-link">Ouvrir la liste -></span>
     </a>
-    <a href="/personnes">
-      <h2>Personnes</h2>
-      <p>Voir la liste des personnes.</p>
+
+    <a href="/personnes" class="item-row block">
+      <div>
+        <div class="inline-list">
+          <span class="chip">Personnes</span>
+          <span class="muted-chip">Casting & equipe</span>
+        </div>
+        <h2 class="mt-3 text-xl font-semibold text-white">Annuaire des talents</h2>
+        <p class="item-meta">Acteurs, realisateurs, scenaristes et producteurs centralises.</p>
+      </div>
+      <span class="btn-link">Explorer -></span>
     </a>
-  </div>
+
+    <a href="/authpassword" class="item-row block">
+      <div>
+        <div class="inline-list">
+          <span class="chip">Admin</span>
+          <span class="muted-chip">PocketBase</span>
+        </div>
+        <h2 class="mt-3 text-xl font-semibold text-white">Connexion securisee</h2>
+        <p class="item-meta">Connecte-toi pour creer, modifier et supprimer les contenus.</p>
+      </div>
+      <span class="btn-link">Se connecter -></span>
+    </a>
+  </section>
 </Layout>
-

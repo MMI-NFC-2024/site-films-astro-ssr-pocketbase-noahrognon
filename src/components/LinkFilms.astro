@@ -2,11 +2,11 @@
 import slug from "slug";
 
 import type { FilmsResponse } from "../pocketbase-types";
-type Props={
+type Props = {
   film: FilmsResponse;
-}
+};
 const film = Astro.props.film;
 ---
-<a href={`/films/${film.id}-${slug(film.titre)}`}>
-  {film.titre}
-
+<a class="pill-link" href={`/films/${film.id}-${slug(film.titre || "film")}`}>
+  {film.titre || "Film"}
+</a>

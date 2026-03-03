@@ -1,45 +1,72 @@
-﻿---
+---
 import Layout from "../../layouts/Layout.astro";
 import slug from "slug";
 
-const personnes = await Astro.locals.pb.collection("Personne").getFullList();
+const personnes = await Astro.locals.pb.collection("Personne").getFullList({ sort: "nom" });
 const isLoggedIn = Astro.locals.pb.authStore.isValid;
 ---
 
 <Layout pageTitle="Personnes - PocketBase Cinema">
-  <div>
-    <h1>Personnes</h1>
-    {isLoggedIn && (
-      <a href="/personnes/edit/new-nouvelle">
-        Ajouter une personne
-      </a>
+  <section class="hero-card">
+    <div class="hero-glow-secondary"></div>
+    <div class="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <span class="chip">Talents</span>
+        <h1 class="page-title mt-3">Personnes</h1>
+        <p class="page-subtitle">Retrouve les acteurs, realisateurs, scenaristes et producteurs relies aux films.</p>
+      </div>
+      {isLoggedIn && <a href="/personnes/edit/new-nouvelle" class="btn-primary">Ajouter une personne</a>}
+    </div>
+  </section>
+
+  <section class="stats-grid">
+    <div class="stat-card">
+      <p class="stat-label">Total</p>
+      <p class="stat-value">{personnes.length} personne{personnes.length > 1 ? "s" : ""}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Mode</p>
+      <p class="stat-value">{isLoggedIn ? "Edition active" : "Consultation"}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Astuce</p>
+      <p class="stat-value">Ouvre une fiche pour voir les films par role</p>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-lg font-semibold text-white">Annuaire</h2>
+      <span class="muted-chip">{personnes.length} resultats</span>
+    </div>
+
+    {personnes.length === 0 ? (
+      <div class="empty-state mt-4">Aucune personne enregistree pour le moment.</div>
+    ) : (
+      <ul class="list-stack mt-4">
+        {personnes.map((personne) => {
+          const displayName = personne.prenom
+            ? `${personne.prenom} ${personne.nom ?? ""}`.trim()
+            : personne.nom || "Personne";
+
+          return (
+            <li class="item-row">
+              <div>
+                <a class="item-title-link" href={`/personnes/${personne.id}-${slug(personne.nom || "personne")}`}>
+                  {displayName}
+                </a>
+                <p class="item-meta">{personne.proffession?.join(", ") || "Profession non specifiee"}</p>
+              </div>
+              <div class="actions-row">
+                <a class="btn-secondary" href={`/personnes/${personne.id}-${slug(personne.nom || "personne")}`}>Voir</a>
+                {isLoggedIn && (
+                  <a class="btn-primary" href={`/personnes/edit/${personne.id}-${slug(personne.nom || "personne")}`}>Editer</a>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     )}
-  </div>
-
-  <ul>
-    {personnes.map((personne) => (
-      <li>
-        <div>
-          <a
-           
-            href={`/personnes/${personne.id}-${slug(personne.nom || "personne")}`}
-          >
-            {personne.prenom ? `${personne.prenom} ${personne.nom ?? ""}`.trim() : personne.nom || "Personne"}
-          </a>
-          <p>
-            {personne.proffession?.join(", ") || "Profession non specifiee"}
-          </p>
-        </div>
-        {isLoggedIn && (
-          <a
-           
-            href={`/personnes/edit/${personne.id}-${slug(personne.nom || "personne")}`}
-          >
-            Editer
-          </a>
-        )}
-      </li>
-    ))}
-  </ul>
+  </section>
 </Layout>
-

@@ -1,5 +1,4 @@
-﻿---
-import { Debug } from "astro:components";
+---
 import Layout from "../../layouts/Layout.astro";
 import type {
   FilmsResponse,
@@ -7,6 +6,7 @@ import type {
   RoleResponse,
 } from "../../pocketbase-types";
 import LinkPersonne from "../../components/LinkPersonne.astro";
+
 export const prerender = false;
 
 const { id, titre_slug } = Astro.params;
@@ -40,68 +40,111 @@ const pageTitle = film.titre ? `${film.titre} - Film` : "Film";
 const releaseDate = film.dete_de_sortie
   ? new Date(film.dete_de_sortie).toLocaleDateString("fr-FR")
   : "Non specifie";
+
+const posterUrl = film.poster ? Astro.locals.pb.files.getURL(film, film.poster) : null;
+const roles = film.expand?.Role_via_film || [];
 ---
 
-
 <Layout pageTitle={pageTitle}>
-  <div>
-    <div>
-      <h1>{film.titre || "Film"}</h1>
-      <p>{film.genres?.join(", ") || "Genres non definis"}</p>
-    </div>
-    {isLoggedIn && <a href={`/films/edit/${id}-${titre_slug}`}>Editer</a>}
-    {isLoggedIn && <a href={`/films/supprimer-film/${id}`}>Supprimer</a>}
-  </div>
+  <section class="hero-card">
+    <div class="hero-glow"></div>
+    <div class="hero-glow-secondary"></div>
+    <div class="relative z-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <div class="space-y-4">
+        <div class="inline-list">
+          <span class="chip">Fiche film</span>
+          {film.genres?.map((genre) => <span class="muted-chip">{genre}</span>)}
+          {(!film.genres || film.genres.length === 0) && <span class="muted-chip">Genres non definis</span>}
+        </div>
 
-  <div>
-    <div>
-      <p>Date de sortie</p>
-      <p>{releaseDate}</p>
-    </div>
-    <div>
-      <p>Duree (min)</p>
-      <p>{film.dure_min ?? "Non specifie"}</p>
-    </div>
-    <div>
-      <p>Producteur</p>
-      <p>
-        {
-          film.expand?.producteur
-            ? nameFor(film.expand.producteur)
-            : "Non specifie"
-        }
-      </p>
-    </div>
-    <div>
-      <p>Realisateur</p>
-      <p>{listNames(film.expand?.realisateur)}</p>
-    </div>
-    <div>
-      <p>Scenariste</p>
-      <p>{listNames(film.expand?.scenariste)}</p>
-    </div>
-  </div>
+        <div>
+          <h1 class="page-title">{film.titre || "Film"}</h1>
+          <p class="page-subtitle">Consulte la fiche complete, les credits et les roles du casting.</p>
+        </div>
 
-  <div>
-    <p>Synopsis</p>
-    <p>{film.synopsis || "Non specifie"}</p>
-  </div>
+        <div class="actions-row">
+          <a class="btn-secondary" href="/films">Retour aux films</a>
+          {isLoggedIn && <a class="btn-primary" href={`/films/edit/${id}-${titre_slug}`}>Editer</a>}
+          {isLoggedIn && <a class="btn-danger" href={`/films/supprimer-film/${id}`}>Supprimer</a>}
+        </div>
+      </div>
 
-  
-  <p>{isLoggedIn && <a href={`/films/ajout-role/${id}`}>Ajouter un role</a>}</p>
-  
-  {film.expand?.Role_via_film && <div>
-    <p>Roles:</p>
-      <ul>
-        {film.expand.Role_via_film.map((role) => (
-          <li>
-            {role.nom} - <LinkPersonne personne={role.expand?.acteur} />
-            {isLoggedIn && <a href={`/films/supprimer-role/${id}-${role.id}`}>Supprimer</a>}
+      <div class="surface-card">
+        {posterUrl ? (
+          <img src={posterUrl} alt={`Poster de ${film.titre || "ce film"}`} class="h-full max-h-80 w-full rounded-xl object-cover" loading="lazy" />
+        ) : (
+          <div class="flex h-56 items-center justify-center rounded-xl border border-dashed border-white/15 bg-white/5 text-sm text-slate-400">
+            Aucun poster
+          </div>
+        )}
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-grid">
+    <div class="stat-card">
+      <p class="stat-label">Date de sortie</p>
+      <p class="stat-value">{releaseDate}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Duree</p>
+      <p class="stat-value">{film.dure_min ? `${film.dure_min} min` : "Non specifie"}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Roles</p>
+      <p class="stat-value">{roles.length} role{roles.length > 1 ? "s" : ""}</p>
+    </div>
+  </section>
+
+  <section class="card-grid">
+    <div class="section-card">
+      <p class="stat-label">Producteur</p>
+      <p class="stat-value">{film.expand?.producteur ? nameFor(film.expand.producteur) : "Non specifie"}</p>
+    </div>
+    <div class="section-card">
+      <p class="stat-label">Realisateur(s)</p>
+      <p class="stat-value">{listNames(film.expand?.realisateur)}</p>
+    </div>
+    <div class="section-card">
+      <p class="stat-label">Scenariste(s)</p>
+      <p class="stat-value">{listNames(film.expand?.scenariste)}</p>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-lg font-semibold text-white">Synopsis</h2>
+      <span class="muted-chip">Description</span>
+    </div>
+    <p class="mt-4 whitespace-pre-line text-sm leading-7 text-slate-200">
+      {film.synopsis || "Non specifie"}
+    </p>
+  </section>
+
+  <section class="section-card">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <h2 class="text-lg font-semibold text-white">Roles du film</h2>
+      {isLoggedIn && <a class="btn-primary" href={`/films/ajout-role/${id}`}>Ajouter un role</a>}
+    </div>
+
+    {roles.length === 0 ? (
+      <div class="empty-state mt-4">Aucun role enregistre pour ce film.</div>
+    ) : (
+      <ul class="list-stack mt-4">
+        {roles.map((role) => (
+          <li class="item-row">
+            <div>
+              <p class="text-sm font-semibold text-white">{role.nom || "Role sans nom"}</p>
+              <div class="mt-2 inline-list">
+                <LinkPersonne personne={role.expand?.acteur} />
+              </div>
+            </div>
+            {isLoggedIn && (
+              <a class="btn-danger" href={`/films/supprimer-role/${id}-${role.id}`}>Supprimer</a>
+            )}
           </li>
         ))}
       </ul>
-  </div>
-  }
-
-  <p><a href="/films"> Retour a la liste des films </a></p>
+    )}
+  </section>
 </Layout>

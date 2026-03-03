@@ -59,9 +59,9 @@ export type FilmsRecord = {
 	dure_min?: number
 	genres?: FilmsGenresOptions[]
 	id: string
+	poster?: FileNameString
 	producteur?: RecordIdString
 	realisateur?: RecordIdString[]
-	role?: RecordIdString[]
 	scenariste?: RecordIdString[]
 	synopsis?: string
 	titre?: string
@@ -91,6 +91,7 @@ export type PersonneRecord = {
 export type RoleRecord = {
 	acteur?: RecordIdString
 	created: IsoAutoDateString
+	film?: RecordIdString
 	id: string
 	nom?: string
 	updated: IsoAutoDateString

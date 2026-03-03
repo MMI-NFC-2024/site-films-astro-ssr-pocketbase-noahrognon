@@ -1,27 +1,43 @@
 ---
-import { Debug } from "astro:components";
+import Layout from "../../../layouts/Layout.astro";
 import slug from "slug";
+
 export const prerender = false;
+
 const { idFilm, idRole } = Astro.params;
 const role = await Astro.locals.pb.collection("Role").getOne(idRole);
 const film = await Astro.locals.pb.collection("Films").getOne(idFilm);
+
 if (Astro.request.method === "POST") {
-    try {
-        await Astro.locals.pb.collection("Role").delete(idRole);
-    } catch (error) {
-        console.error("Erreur suppression du role:", error);
-    }
-   
-        return Astro.redirect(`/films/${idFilm}-${slug(film.titre)}`);
+  try {
+    await Astro.locals.pb.collection("Role").delete(idRole);
+  } catch (error) {
+    console.error("Erreur suppression du role:", error);
+  }
+
+  return Astro.redirect(`/films/${idFilm}-${slug(film.titre || "film")}`);
 }
 ---
 
+<Layout pageTitle="Supprimer role - PocketBase Cinema">
+  <section class="hero-card">
+    <div class="hero-glow"></div>
+    <div class="relative z-10">
+      <span class="chip">Casting</span>
+      <h1 class="page-title mt-3">Supprimer un role</h1>
+      <p class="page-subtitle">
+        Vous allez supprimer le role <span class="font-semibold text-white">{role.nom || "Sans nom"}</span> du film <span class="font-semibold text-white">{film.titre || "Film"}</span>.
+      </p>
+    </div>
+  </section>
 
-<form method="POST">
-    <label
-        >Nom du role: {role.nom}
-    </label>
-    
-
-        <button type="submit">Confirmer la suppression</button>
-</form>
+  <section class="danger-panel">
+    <form method="post" class="stack">
+      <p class="text-sm text-rose-100">Cette action est irreversible.</p>
+      <div class="actions-row">
+        <button class="btn-danger" type="submit">Confirmer la suppression</button>
+        <a class="btn-secondary" href={`/films/${idFilm}-${slug(film.titre || "film")}`}>Annuler</a>
+      </div>
+    </form>
+  </section>
+</Layout>

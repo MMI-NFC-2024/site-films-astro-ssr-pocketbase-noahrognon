@@ -1,27 +1,40 @@
 ---
-import { Debug } from "astro:components";
+import Layout from "../../../layouts/Layout.astro";
 import slug from "slug";
 
 export const prerender = false;
+
 const { idFilm } = Astro.params;
 const film = await Astro.locals.pb.collection("Films").getOne(idFilm);
+
 if (Astro.request.method === "POST") {
-    try {
-        await Astro.locals.pb.collection("Films").delete(idFilm);
-    } catch (error) {
-        console.error("Erreur suppression du film:", error);
-    }
-   
-        return Astro.redirect(`/films/`);
+  try {
+    await Astro.locals.pb.collection("Films").delete(idFilm);
+  } catch (error) {
+    console.error("Erreur suppression du film:", error);
+  }
+
+  return Astro.redirect(`/films/`);
 }
 ---
 
+<Layout pageTitle="Supprimer film - PocketBase Cinema">
+  <section class="hero-card">
+    <div class="hero-glow-secondary"></div>
+    <div class="relative z-10">
+      <span class="chip">Danger zone</span>
+      <h1 class="page-title mt-3">Supprimer le film</h1>
+      <p class="page-subtitle">Cette action supprimera definitivement la fiche du film <span class="font-semibold text-white">{film.titre || "Film"}</span>.</p>
+    </div>
+  </section>
 
-<form method="POST">
-    <label
-        >Nom du film: {film.titre}
-    </label>
-    
-
-        <button type="submit">Confirmer la suppression</button>
-</form>
+  <section class="danger-panel">
+    <form method="post" class="stack">
+      <p class="text-sm text-rose-100">Confirme la suppression pour continuer.</p>
+      <div class="actions-row">
+        <button class="btn-danger" type="submit">Confirmer la suppression</button>
+        <a class="btn-secondary" href={`/films/${film.id}-${slug(film.titre || "film")}`}>Annuler</a>
+      </div>
+    </form>
+  </section>
+</Layout>

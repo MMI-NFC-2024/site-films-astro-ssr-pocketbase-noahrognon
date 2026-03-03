@@ -1,8 +1,9 @@
-﻿---
-import { Debug } from "astro:components";
+---
 import Layout from "../../layouts/Layout.astro";
-import type { FilmsResponse, PersonneResponse } from "../../pocketbase-types";
+import type { FilmsResponse, PersonneResponse, RoleResponse } from "../../pocketbase-types";
 import LinkListeFilms from "../../components/LinkListeFilms.astro";
+import LinkFilms from "../../components/LinkFilms.astro";
+
 export const prerender = false;
 
 const { id, nom_slug } = Astro.params;
@@ -12,11 +13,14 @@ const personne = await Astro.locals.pb
       Films_via_producteur: FilmsResponse[];
       Films_via_realisateur: FilmsResponse[];
       Films_via_scenariste: FilmsResponse[];
+      Role_via_acteur: RoleResponse<{ film: FilmsResponse }>[];
     }>
   >("Personne")
   .getOne(id, {
-    expand: "Films_via_producteur,Films_via_realisateur,Films_via_scenariste",
+    expand:
+      "Films_via_producteur,Films_via_realisateur,Films_via_scenariste,Role_via_acteur.film",
   });
+
 const isLoggedIn = Astro.locals.pb.authStore.isValid;
 
 const displayName = personne.prenom
@@ -34,58 +38,91 @@ const deathDate = personne.date_de_deces
 let age = null;
 if (personne.date_de_naissance) {
   const birth = new Date(personne.date_de_naissance);
-  const endDate = personne.date_de_deces
-    ? new Date(personne.date_de_deces)
-    : new Date();
+  const endDate = personne.date_de_deces ? new Date(personne.date_de_deces) : new Date();
   age = endDate.getFullYear() - birth.getFullYear();
   const monthDiff = endDate.getMonth() - birth.getMonth();
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && endDate.getDate() < birth.getDate())
-  ) {
+  if (monthDiff < 0 || (monthDiff === 0 && endDate.getDate() < birth.getDate())) {
     age--;
   }
 }
+
+const actingRoles = personne.expand?.Role_via_acteur || [];
 ---
 
 <Layout pageTitle={pageTitle}>
-  <div>
-    <div>
-      <h1>{displayName}</h1>
-      <p>
-        {personne.proffession?.join(", ") || "Profession non specifiee"}
-      </p>
+  <section class="hero-card">
+    <div class="hero-glow-secondary"></div>
+    <div class="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <div class="inline-list">
+          <span class="chip">Fiche personne</span>
+          {(personne.proffession || []).map((job) => <span class="muted-chip">{job}</span>)}
+          {(!personne.proffession || personne.proffession.length === 0) && <span class="muted-chip">Profession non specifiee</span>}
+        </div>
+        <h1 class="page-title mt-3">{displayName}</h1>
+        <p class="page-subtitle">Credits, films relies et roles joues dans le catalogue.</p>
+      </div>
+      <div class="actions-row">
+        <a class="btn-secondary" href="/personnes">Retour aux personnes</a>
+        {isLoggedIn && <a class="btn-primary" href={`/personnes/edit/${id}-${nom_slug}`}>Editer</a>}
+        {isLoggedIn && <a class="btn-danger" href={`/personnes/supprimer-personne/${id}`}>Supprimer</a>}
+      </div>
     </div>
-    {isLoggedIn && <a href={`/personnes/edit/${id}-${nom_slug}`}>Editer</a>}
-  </div>
+  </section>
 
-  <div>
-    <div>
-      <p>Naissance</p>
-      <p>{birthDate}</p>
+  <section class="stats-grid">
+    <div class="stat-card">
+      <p class="stat-label">Naissance</p>
+      <p class="stat-value">{birthDate}</p>
     </div>
-    <div>
-      <p>Deces</p>
-      <p>{deathDate}</p>
+    <div class="stat-card">
+      <p class="stat-label">Deces</p>
+      <p class="stat-value">{deathDate}</p>
     </div>
-    <div>
-      <p>Age</p>
-      <p>{age ?? "Non specifie"}</p>
+    <div class="stat-card">
+      <p class="stat-label">Age</p>
+      <p class="stat-value">{age ?? "Non specifie"}</p>
     </div>
-    <div>
-      <p>Film comme producteur</p>
-      <LinkListeFilms films={personne.expand?.Films_via_producteur || []} />
+  </section>
+
+  <section class="card-grid">
+    <div class="section-card">
+      <p class="stat-label">Films comme producteur</p>
+      <div class="mt-3"><LinkListeFilms films={personne.expand?.Films_via_producteur || []} /></div>
     </div>
-    <div>
-      <p>Film comme realisateur</p>
-      <LinkListeFilms films={personne.expand?.Films_via_realisateur || []} />
+    <div class="section-card">
+      <p class="stat-label">Films comme realisateur</p>
+      <div class="mt-3"><LinkListeFilms films={personne.expand?.Films_via_realisateur || []} /></div>
     </div>
-    <div>
-      <p>Film comme scenariste</p>
-      <LinkListeFilms films={personne.expand?.Films_via_scenariste || []} />
+    <div class="section-card">
+      <p class="stat-label">Films comme scenariste</p>
+      <div class="mt-3"><LinkListeFilms films={personne.expand?.Films_via_scenariste || []} /></div>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-lg font-semibold text-white">Roles d'acteur</h2>
+      <span class="muted-chip">{actingRoles.length} role{actingRoles.length > 1 ? "s" : ""}</span>
     </div>
 
-    <a href="/personnes"> Retour a la liste des personnes </a>
-    {isLoggedIn && <a href={`/personnes/supprimer-personne/${id}`}>Supprimer</a>}
-  </div>
+    {actingRoles.length === 0 ? (
+      <div class="empty-state mt-4">Aucun role d'acteur enregistre.</div>
+    ) : (
+      <ul class="list-stack mt-4">
+        {actingRoles.map((role) => (
+          <li class="item-row">
+            <div>
+              <p class="text-sm text-slate-300">Joue le role de</p>
+              <p class="text-base font-semibold text-white">{role.nom || "Role sans nom"}</p>
+              <div class="mt-2 inline-list">
+                <span class="muted-chip">dans</span>
+                {role.expand?.film ? <LinkFilms film={role.expand.film} /> : <span class="muted-chip">Film inconnu</span>}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
 </Layout>

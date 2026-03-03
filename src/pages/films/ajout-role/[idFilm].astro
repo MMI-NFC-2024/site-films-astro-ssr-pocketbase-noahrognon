@@ -1,51 +1,87 @@
 ---
-import { Debug } from "astro:components";
+import Layout from "../../../layouts/Layout.astro";
 import slug from "slug";
 
 export const prerender = false;
+
 const { idFilm } = Astro.params;
+const isLoggedIn = Astro.locals.pb.authStore.isValid;
 const film = await Astro.locals.pb.collection("Films").getOne(idFilm);
 const personnes = await Astro.locals.pb.collection("Personne").getFullList({
-    fields: "id,nom,prenom",
+  fields: "id,nom,prenom",
+  sort: "nom",
 });
+
+let errorMessage = "";
+
 if (Astro.request.method === "POST") {
-    const data = await Astro.request.formData();
-    let role;
-    try {
-        role = await Astro.locals.pb.collection("Role").create(data);
-    } catch (error) {
-        console.error("Erreur création du role:", error);
-       
+  const data = await Astro.request.formData();
+
+  try {
+    const role = await Astro.locals.pb.collection("Role").create(data);
+    if (role) {
+      return Astro.redirect(`/films/${idFilm}-${slug(film.titre || "film")}`);
     }
-    if (role ) {
-        return Astro.redirect(`/films/${idFilm}-${slug(film.titre)}`);
-    }
+  } catch (error) {
+    console.error("Erreur creation du role:", error);
+    errorMessage = error instanceof Error ? error.message : "Erreur lors de la creation du role.";
+  }
 }
 ---
-<Debug {idFilm} />
-<form method="POST">
-    <label
-        >Nom du role
-        <input type="text" name="nom" required />
-    </label>
-    <label>
-        Personne
-        <select name="acteur">
-            <option value="">Aucun</option>
-            {
-                personnes.map((personne) => (
-                    <option value={personne.id}>
-                        {personne.prenom} {personne.nom}
-                    </option>
-                ))
-            }
-        </select>
-        <button type="submit">Ajouter</button>
-    </label>
-    <input
-        type="hidden"
-        name="user"
-        value={Astro.locals.pb.authStore.record?.id}
-    />
-    <input type="hidden" name="film" value={idFilm} />
-</form>
+
+<Layout pageTitle={`Ajouter un role - ${film.titre || "Film"}`}>
+  <section class="hero-card">
+    <div class="hero-glow"></div>
+    <div class="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <span class="chip">Casting</span>
+        <h1 class="page-title mt-3">Ajouter un role</h1>
+        <p class="page-subtitle">Associe un role et un acteur au film <span class="font-semibold text-white">{film.titre || "Film"}</span>.</p>
+      </div>
+      <a class="btn-secondary" href={`/films/${idFilm}-${slug(film.titre || "film")}`}>Retour au film</a>
+    </div>
+  </section>
+
+  {!isLoggedIn && (
+    <section class="section-card">
+      <p class="text-sm text-slate-200">Vous devez etre connecte pour ajouter un role. <a class="btn-link" href="/authpassword">Se connecter</a></p>
+    </section>
+  )}
+
+  {errorMessage && (
+    <section class="section-card border-rose-300/20 bg-rose-400/10">
+      <p class="text-sm text-rose-100">{errorMessage}</p>
+    </section>
+  )}
+
+  {isLoggedIn && (
+    <section class="form-card">
+      <form method="post" class="stack">
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">Nom du role</span>
+            <input class="text-input" type="text" name="nom" required />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Personne</span>
+            <select class="select-input" name="acteur">
+              <option value="">Aucun</option>
+              {personnes.map((personne) => (
+                <option value={personne.id}>{[personne.prenom, personne.nom].filter(Boolean).join(" ")}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <input type="hidden" name="user" value={Astro.locals.pb.authStore.record?.id} />
+        <input type="hidden" name="film" value={idFilm} />
+
+        <div class="actions-row">
+          <button class="btn-primary" type="submit">Ajouter</button>
+          <a class="btn-secondary" href={`/films/${idFilm}-${slug(film.titre || "film")}`}>Annuler</a>
+        </div>
+      </form>
+    </section>
+  )}
+</Layout>

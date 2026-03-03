@@ -1,12 +1,21 @@
 ---
 import slug from "slug";
-import type {  PersonneResponse } from "../pocketbase-types";
+import type { PersonneResponse } from "../pocketbase-types";
 type Props = {
-    personne: PersonneResponse;
+  personne: PersonneResponse | undefined;
 };
 const personne = Astro.props.personne;
 ---
 
-<a href={`/personnes/${personne.id}-${slug(personne.nom)}`}>
-    {personne.nom} {personne.prenom}
-</a>
+{
+  personne ? (
+    <a
+      class="pill-link"
+      href={`/personnes/${personne.id}-${slug(personne.nom || "personne")}`}
+    >
+      {[personne.prenom, personne.nom].filter(Boolean).join(" ") || "Personne"}
+    </a>
+  ) : (
+    <span class="muted-chip">Personne inconnue</span>
+  )
+}

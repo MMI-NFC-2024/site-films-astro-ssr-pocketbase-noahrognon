@@ -1,15 +1,20 @@
-﻿---
+---
 import Layout from "../../../layouts/Layout.astro";
+import { FilmsGenresOptions, type FilmsResponse } from "../../../pocketbase-types";
 
 export const prerender = false;
 
-const { id, titre_slug } = Astro.params;
+const rawRouteParam = Astro.params.id;
+const routeParam = typeof rawRouteParam === "string" ? rawRouteParam : "";
+const routeToken = routeParam.split("/").filter(Boolean).at(-1) ?? "";
+const parsedId = routeToken && !routeToken.startsWith("new") ? routeToken.split("-")[0] : undefined;
+
+const isCreateMode = !parsedId;
 const isLoggedIn = Astro.locals.pb.authStore.isValid;
 const userId = Astro.locals.pb.authStore.model?.id ?? null;
+const genreOptions = Object.values(FilmsGenresOptions);
 
-const genreOptions = ["action", "drame", "surprise", "suspense", "horreur"];
-
-const toSlug = (value) =>
+const toSlug = (value: unknown) =>
   String(value || "film")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -17,25 +22,30 @@ const toSlug = (value) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
-let film = null;
-let personnes = [];
-let errorMessage = "";
-
-const loadFilm = async () => {
-  if (!id || id === "new") return null;
-  return Astro.locals.pb.collection("Films").getOne(id);
-};
-
-const nameFor = (personne) => {
-  if (!personne) return "";
+const nameFor = (personne: { id: string; nom?: string; prenom?: string }) => {
   const parts = [personne.prenom, personne.nom].filter(Boolean);
   return parts.length ? parts.join(" ") : personne.id;
 };
 
+const toDateInputValue = (value?: string | null) => (value ? String(value).slice(0, 10) : "");
+
+let film: FilmsResponse | null = null;
+let personnes: Array<{ id: string; nom?: string; prenom?: string }> = [];
+let errorMessage = "";
+
 if (isLoggedIn) {
   personnes = await Astro.locals.pb.collection("Personne").getFullList({
+    sort: "nom",
     fields: "id,nom,prenom",
   });
+}
+
+if (isLoggedIn && parsedId) {
+  try {
+    film = await Astro.locals.pb.collection("Films").getOne(parsedId);
+  } catch (error) {
+    errorMessage = error instanceof Error ? error.message : "Film introuvable.";
+  }
 }
 
 if (Astro.request.method === "POST") {
@@ -43,7 +53,6 @@ if (Astro.request.method === "POST") {
     errorMessage = "Vous devez etre connecte pour modifier ou ajouter.";
   } else {
     const data = await Astro.request.formData();
-    const intent = String(data.get("intent") || "update");
 
     const titre = String(data.get("titre") || "").trim();
     const dateSortie = String(data.get("dete_de_sortie") || "").trim();
@@ -54,11 +63,8 @@ if (Astro.request.method === "POST") {
     const producteur = String(data.get("producteur") || "").trim();
     const realisateur = data.getAll("realisateur").map((v) => String(v));
     const scenariste = data.getAll("scenariste").map((v) => String(v));
-    const personneList = await Astro.locals.pb
-      .collection("Personne")
-      .getFullList({
-        sort: "nom",
-      });
+    const poster = data.get("poster");
+
     const payload = {
       titre: titre || null,
       dete_de_sortie: dateSortie || null,
@@ -68,258 +74,156 @@ if (Astro.request.method === "POST") {
       producteur: producteur || null,
       realisateur,
       scenariste,
+      ...(poster instanceof File && poster.size > 0 ? { poster } : {}),
       ...(userId ? { user: userId } : {}),
     };
 
     try {
-      if (intent === "create") {
-        const record = await Astro.locals.pb
-          .collection("Films")
-          .create(payload);
-        const slug = toSlug(titre);
-        return Astro.redirect(`/films/${record.id}-${slug}`);
-      }
+      const savedFilm = parsedId
+        ? await Astro.locals.pb.collection("Films").update(parsedId, payload)
+        : await Astro.locals.pb.collection("Films").create(payload);
 
-      await Astro.locals.pb.collection("Films").update(id, payload);
-      return Astro.redirect(`/films/${id}-${titre_slug || "film"}`);
+      return Astro.redirect(`/films/${savedFilm.id}-${toSlug(savedFilm.titre || titre || "film")}`);
     } catch (error) {
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else {
-        errorMessage = "Erreur lors de l'enregistrement.";
-      }
+      errorMessage = error instanceof Error ? error.message : "Erreur lors de l'enregistrement.";
     }
   }
 }
 
-if (isLoggedIn) {
-  try {
-    film = await loadFilm();
-  } catch (error) {
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else {
-      errorMessage = "Film introuvable.";
-    }
-  }
-}
+const posterUrl = film?.poster ? Astro.locals.pb.files.getURL(film, film.poster) : null;
 ---
 
-<Layout pageTitle="Edition film - PocketBase Cinema">
-  <div>
-    <h1>Edition film</h1>
-    <a href="/films">Retour a la liste</a>
-  </div>
-
-  {
-    !isLoggedIn && (
-      <p>
-        Vous devez vous connecter.
-        <a href="/authpassword">Se connecter</a>
-      </p>
-    )
-  }
-
-  {errorMessage && <p>{errorMessage}</p>}
-
-  {
-    isLoggedIn && (
+<Layout pageTitle={`${isCreateMode ? "Ajouter" : "Editer"} un film - PocketBase Cinema`}>
+  <section class="hero-card">
+    <div class="hero-glow"></div>
+    <div class="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        {film && (
-          <div>
-            <h2>Modifier</h2>
-            <form method="post">
-              <input type="hidden" name="intent" value="update" />
-
-              <label>
-                Titre
-                <input type="text" name="titre" value={film.titre ?? ""} />
-              </label>
-
-              <label>
-                Date de sortie
-                <input
-                  type="date"
-                  name="dete_de_sortie"
-                  value={
-                    film.dete_de_sortie ? film.dete_de_sortie.slice(0, 10) : ""
-                  }
-                />
-              </label>
-
-              <label>
-                Duree (min)
-                <input
-                  type="number"
-                  name="dure_min"
-                  value={film.dure_min ?? ""}
-                />
-              </label>
-
-              <label>
-                Synopsis
-                <textarea name="synopsis">{film.synopsis ?? ""}</textarea>
-              </label>
-
-              <fieldset>
-                <legend>Genres</legend>
-                <div>
-                  {genreOptions.map((opt) => (
-                    <label>
-                      <input
-                        type="checkbox"
-                        name="genres"
-                        value={opt}
-                        checked={film.genres?.includes(opt) ?? false}
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
-              <label>
-                Producteur
-                <select name="producteur">
-                  <option value="">Aucun</option>
-                  {personnes.map((personne) => (
-                    <option
-                      value={personne.id}
-                      selected={film.producteur === personne.id}
-                    >
-                      {nameFor(personne)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <fieldset>
-                <legend>Realisateur</legend>
-                <div>
-                  {personnes.map((personne) => (
-                    <label>
-                      <input
-                        type="checkbox"
-                        name="realisateur"
-                        value={personne.id}
-                        checked={
-                          film.realisateur?.includes(personne.id) ?? false
-                        }
-                      />
-                      {nameFor(personne)}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
-              <fieldset>
-                <legend>Scenariste</legend>
-                <div>
-                  {personnes.map((personne) => (
-                    <label>
-                      <input
-                        type="checkbox"
-                        name="scenariste"
-                        value={personne.id}
-                        checked={
-                          film.scenariste?.includes(personne.id) ?? false
-                        }
-                      />
-                      {nameFor(personne)}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
-              <button type="submit">Enregistrer</button>
-            </form>
-          </div>
-        )}
-
-        <div>
-          <h2>Ajouter</h2>
-          <form method="post">
-            <input type="hidden" name="intent" value="create" />
-
-            <label>
-              Titre
-              <input type="text" name="titre" />
-            </label>
-
-            <label>
-              Date de sortie
-              <input type="date" name="dete_de_sortie" />
-            </label>
-
-            <label>
-              Duree (min)
-              <input type="number" name="dure_min" />
-            </label>
-
-            <label>
-              Synopsis
-              <textarea name="synopsis" />
-            </label>
-
-            <fieldset>
-              <legend>Genres</legend>
-              <div>
-                {genreOptions.map((opt) => (
-                  <label>
-                    <input type="checkbox" name="genres" value={opt} />
-                    {opt}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <label>
-              Producteur
-              <select name="producteur">
-                <option value="">Aucun</option>
-                {personnes.map((personne) => (
-                  <option value={personne.id}>{nameFor(personne)}</option>
-                ))}
-              </select>
-            </label>
-
-            <fieldset>
-              <legend>Realisateur</legend>
-              <div>
-                {personnes.map((personne) => (
-                  <label>
-                    <input
-                      type="checkbox"
-                      name="realisateur"
-                      value={personne.id}
-                    />
-                    {nameFor(personne)}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset>
-              <legend>Scenariste</legend>
-              <div>
-                {personnes.map((personne) => (
-                  <label>
-                    <input
-                      type="checkbox"
-                      name="scenariste"
-                      value={personne.id}
-                    />
-                    {nameFor(personne)}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <button type="submit">Ajouter</button>
-          </form>
-        </div>
+        <span class="chip">Back-office</span>
+        <h1 class="page-title mt-3">{isCreateMode ? "Ajouter un film" : "Edition film"}</h1>
+        <p class="page-subtitle">Renseigne les metadonnees, genres, credits et poster du film.</p>
       </div>
-    )
-  }
- 
+      <a href="/films" class="btn-secondary">Retour a la liste</a>
+    </div>
+  </section>
+
+  {!isLoggedIn && (
+    <section class="section-card">
+      <p class="text-sm text-slate-200">
+        Vous devez vous connecter pour utiliser ce formulaire. <a class="btn-link" href="/authpassword">Se connecter</a>
+      </p>
+    </section>
+  )}
+
+  {errorMessage && (
+    <section class="section-card border-rose-300/20 bg-rose-400/10">
+      <p class="text-sm text-rose-100">{errorMessage}</p>
+    </section>
+  )}
+
+  {isLoggedIn && (!parsedId || film) && (
+    <section class="form-card">
+      <form method="post" enctype="multipart/form-data" class="stack">
+        {userId && <input type="hidden" name="user" value={userId} />}
+
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">Poster</span>
+            <input class="text-input file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-300/20 file:px-3 file:py-2 file:text-cyan-100" type="file" name="poster" />
+          </label>
+
+          <div class="field">
+            <span class="field-label">Apercu poster</span>
+            {posterUrl ? (
+              <img src={posterUrl} alt="Poster actuel" class="h-32 w-full rounded-xl border border-white/10 object-cover" />
+            ) : (
+              <div class="flex h-32 items-center justify-center rounded-xl border border-dashed border-white/15 bg-white/5 text-sm text-slate-400">Aucun poster</div>
+            )}
+          </div>
+
+          <label class="field">
+            <span class="field-label">Titre</span>
+            <input class="text-input" type="text" name="titre" value={film?.titre ?? ""} />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Date de sortie</span>
+            <input class="text-input" type="date" name="dete_de_sortie" value={toDateInputValue(film?.dete_de_sortie)} />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Duree (min)</span>
+            <input class="text-input" type="number" name="dure_min" min="0" value={film?.dure_min ?? ""} />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Producteur</span>
+            <select class="select-input" name="producteur">
+              <option value="">Aucun</option>
+              {personnes.map((personne) => (
+                <option value={personne.id} selected={film?.producteur === personne.id}>{nameFor(personne)}</option>
+              ))}
+            </select>
+          </label>
+
+          <label class="field field-full">
+            <span class="field-label">Synopsis</span>
+            <textarea class="text-area" name="synopsis">{film?.synopsis ?? ""}</textarea>
+          </label>
+        </div>
+
+        <fieldset class="section-card">
+          <legend class="field-label px-2">Genres</legend>
+          <div class="checkbox-grid mt-3">
+            {genreOptions.map((opt) => (
+              <label class="check-chip">
+                <input type="checkbox" name="genres" value={opt} checked={film?.genres?.includes(opt) ?? false} />
+                <span>{opt}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div class="grid gap-4 lg:grid-cols-2">
+          <fieldset class="section-card">
+            <legend class="field-label px-2">Realisateur(s)</legend>
+            <div class="checkbox-grid mt-3 max-h-72 overflow-auto pr-1">
+              {personnes.map((personne) => (
+                <label class="check-chip">
+                  <input
+                    type="checkbox"
+                    name="realisateur"
+                    value={personne.id}
+                    checked={film?.realisateur?.includes(personne.id) ?? false}
+                  />
+                  <span>{nameFor(personne)}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset class="section-card">
+            <legend class="field-label px-2">Scenariste(s)</legend>
+            <div class="checkbox-grid mt-3 max-h-72 overflow-auto pr-1">
+              {personnes.map((personne) => (
+                <label class="check-chip">
+                  <input
+                    type="checkbox"
+                    name="scenariste"
+                    value={personne.id}
+                    checked={film?.scenariste?.includes(personne.id) ?? false}
+                  />
+                  <span>{nameFor(personne)}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
+
+        <div class="actions-row">
+          <button class="btn-primary" type="submit">{isCreateMode ? "Ajouter" : "Mettre a jour"}</button>
+          <a class="btn-secondary" href={parsedId ? `/films/${parsedId}-${toSlug(film?.titre || "film")}` : "/films"}>Annuler</a>
+        </div>
+      </form>
+    </section>
+  )}
 </Layout>
